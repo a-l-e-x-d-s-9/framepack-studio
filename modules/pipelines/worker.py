@@ -126,6 +126,7 @@ def worker(
     combine_with_source=None,  # Add combine_with_source parameter
     num_cleaned_frames=5,  # Add num_cleaned_frames parameter with default value
     save_metadata_checked=True,  # Add save_metadata_checked parameter
+    input_image_filename=None,
 ):
     """
     Worker function for video generation.
@@ -311,11 +312,19 @@ def worker(
             "resolutionH": resolutionH,
             "lora_loaded_names": lora_loaded_names,
             "input_image_path": input_image_path,
+            "input_image_filename": input_image_filename,  # NEW
             "end_frame_image_path": end_frame_image_path,
             "combine_with_source": combine_with_source,
             "num_cleaned_frames": num_cleaned_frames,
-            "save_metadata_checked": save_metadata_checked,  # Ensure it's in job_params for internal use
+            "save_metadata_checked": save_metadata_checked,
         }
+
+        # NEW: backfill filename from path if UI did not provide it
+        if not job_params.get("input_image_filename") and job_params.get("input_image_path"):
+            try:
+                job_params["input_image_filename"] = os.path.basename(job_params["input_image_path"])
+            except Exception:
+                job_params["input_image_filename"] = None
 
         # Validate parameters
         is_valid, error_message = pipeline.validate_parameters(job_params)

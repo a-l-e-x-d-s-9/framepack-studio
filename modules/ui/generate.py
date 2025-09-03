@@ -126,15 +126,12 @@ def create_generate_ui(
                 with gr.Group(visible=True) as image_input_group:
                     with gr.Row():
                         with gr.Column(scale=1):
-                            input_image = gr.Image(
-                                sources="upload",
-                                type="numpy",
-                                label="Start Frame (optional)",
-                                elem_classes="contain-image",
-                                image_mode="RGB",
-                                show_download_button=False,
-                                show_label=True,
-                                container=True,
+                            # New: preserves the original filename and server path
+                            input_image_file = gr.File(
+                                label="Start Frame file (preserves filename)",
+                                file_count="single",
+                                file_types=["image"],
+                                type="filepath",
                             )
 
                 with gr.Group(visible=False) as video_input_group:
@@ -455,6 +452,7 @@ def create_generate_ui(
         "standard_generation_group": standard_generation_group,
         "image_input_group": image_input_group,
         "input_image": input_image,
+        "input_image_file": input_image_file,
         "video_input_group": video_input_group,
         "input_video": input_video,
         "combine_with_source": combine_with_source,
@@ -507,18 +505,20 @@ def create_generate_ui(
 def connect_generate_events(g, s, q, f):
     # g: generate_ui_components, s: settings_components, q: queue_components, f: functions
 
-    def on_input_image_change(img):
-        return (
-            gr.update(
-                info="Nearest valid bucket size will be used. Height will be adjusted automatically."
-            ),
-            gr.update(visible=img is None),
-        )
+    def on_input_image_file_change(file_path):
+        if not file_path:
+            return gr.update()
+        try:
+            np_img = np.array(Image.open(file_path).convert("RGB"))
+            return gr.update(value=np_img)
+        except Exception as e:
+            logging.error(f"Failed to load image from file path {file_path}: {e}")
+            return gr.update()
 
-    g["input_image"].change(
-        fn=on_input_image_change,
-        inputs=[g["input_image"]],
-        outputs=[g["resolutionW"], g["resolutionH"]],
+    g["input_image_file"].change(
+        fn=on_input_image_file_change,
+        inputs=[g["input_image_file"]],
+        outputs=[g["input_image"]],
     )
 
     def on_resolution_change(img, resW, resH):
@@ -565,6 +565,7 @@ def connect_generate_events(g, s, q, f):
         queue_status_data, queue_stats_text = f["update_stats"]()
         (
             input_image_arg,
+            input_image_file_path_arg,
             input_video_arg,
             end_frame_image_original_arg,
             end_frame_strength_original_arg,
@@ -600,17 +601,20 @@ def connect_generate_events(g, s, q, f):
         )
         is_ui_video_model = f["is_video_model"](model_type_arg)
         input_data = input_video_arg if is_ui_video_model else input_image_arg
+
         actual_end_frame_image_for_backend, actual_end_frame_strength_for_backend = (
             (end_frame_image_original_arg, end_frame_strength_original_arg)
             if model_type_arg
             in ["Original with Endframe", "F1 with Endframe", "Video with Endframe"]
             else (None, 1.0)
         )
-        input_image_path = (
-            input_video_arg
-            if is_ui_video_model and input_video_arg is not None
-            else None
-        )
+
+        if is_ui_video_model:
+            input_image_path = input_video_arg if input_video_arg is not None else None
+        else:
+            # prefer explicit file path from the File uploader when provided
+            input_image_path = input_image_file_path_arg
+
         result = f["process_fn"](
             backend_model_type,
             input_data,
@@ -686,36 +690,37 @@ def connect_generate_events(g, s, q, f):
         )
 
     ips = [
-        g["input_image"],
-        g["input_video"],
-        g["end_frame_image_original"],
-        g["end_frame_strength_original"],
-        g["prompt"],
-        g["n_prompt"],
-        g["seed"],
-        g["randomize_seed"],
-        g["total_second_length"],
-        g["latent_window_size"],
-        g["steps"],
-        g["cfg"],
-        g["gs"],
-        g["rs"],
-        g["cache_type"],
-        g["teacache_num_steps"],
-        g["teacache_rel_l1_thresh"],
-        g["magcache_threshold"],
-        g["magcache_max_consecutive_skips"],
-        g["magcache_retention_ratio"],
-        g["blend_sections"],
-        g["latent_type"],
-        s["clean_up_videos"],
-        g["lora_selector"],
-        g["resolutionW"],
-        g["resolutionH"],
-        g["combine_with_source"],
-        g["num_cleaned_frames"],
-        g["lora_names_states"],
-    ] + list(g["lora_sliders"].values())
+          g["input_image"],
+          g["input_image_file"],  # NEW - filepath from File uploader
+          g["input_video"],
+          g["end_frame_image_original"],
+          g["end_frame_strength_original"],
+          g["prompt"],
+          g["n_prompt"],
+          g["seed"],
+          g["randomize_seed"],
+          g["total_second_length"],
+          g["latent_window_size"],
+          g["steps"],
+          g["cfg"],
+          g["gs"],
+          g["rs"],
+          g["cache_type"],
+          g["teacache_num_steps"],
+          g["teacache_rel_l1_thresh"],
+          g["magcache_threshold"],
+          g["magcache_max_consecutive_skips"],
+          g["magcache_retention_ratio"],
+          g["blend_sections"],
+          g["latent_type"],
+          s["clean_up_videos"],
+          g["lora_selector"],
+          g["resolutionW"],
+          g["resolutionH"],
+          g["combine_with_source"],
+          g["num_cleaned_frames"],
+          g["lora_names_states"],
+      ] + list(g["lora_sliders"].values())
 
     def handle_start_button(selected_model, *args):
         return process_with_queue_update(selected_model, *args)
@@ -781,14 +786,30 @@ def connect_generate_events(g, s, q, f):
         if not batch_files:
             return
         logging.info(f"Starting batch processing for {len(batch_files)} images.")
-        single_job_args = list(args[:-1])
-        model_type_arg = single_job_args.pop(0)
-        current_seed, randomize_seed_arg = single_job_args[6], single_job_args[7]
+
+        single_job_args = list(args[:-1])  # [model_type] + ips values
+        model_type_arg = single_job_args.pop(0)  # remove model_type, leaving ips values
+
+        # Find positions in ips for robust indexing
+        idx_img = ips.index(g["input_image"])
+        idx_file = ips.index(g["input_image_file"])
+        idx_seed = ips.index(g["seed"])
+        idx_rand = ips.index(g["randomize_seed"])
+
+        current_seed = single_job_args[idx_seed]
+        randomize_seed_arg = single_job_args[idx_rand]
+
         for image_path in batch_files:
             try:
                 numpy_image = np.array(Image.open(image_path).convert("RGB"))
                 current_job_args = single_job_args[:]
-                current_job_args[0], current_job_args[6] = numpy_image, current_seed
+
+                # Set both the numpy image and the filepath
+                current_job_args[idx_img] = numpy_image
+                current_job_args[idx_file] = image_path
+
+                # Preserve/advance seed
+                current_job_args[idx_seed] = current_seed
                 process_with_queue_update(model_type_arg, *current_job_args)
                 if randomize_seed_arg:
                     current_seed = random.randint(0, 21474)

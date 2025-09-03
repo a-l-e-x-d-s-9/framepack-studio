@@ -319,22 +319,38 @@ def process(
     input_files_dir = settings.get("input_files_dir")
     os.makedirs(input_files_dir, exist_ok=True)
 
-    # Process input image (if it's a file path)
-    input_image_path = None
+    # Process input image (if it is a server file path). IMPORTANT:
+    # Do not shadow the input_image_path argument coming from the UI.
+    original_input_image_path = input_image_path if isinstance(input_image_path, str) else None
+    copied_input_image_path = None
+    input_image_filename = None
+
     if isinstance(input_image, str) and os.path.exists(input_image):
-        # It's a file path, copy it to input_files_dir
-        filename = os.path.basename(input_image)
-        input_image_path = os.path.join(
-            input_files_dir, f"{generate_timestamp()}_{filename}"
+        # It is a server-side upload path; preserve filename and copy to input_files_dir
+        input_image_filename = os.path.basename(input_image)
+        copied_input_image_path = os.path.join(
+            input_files_dir, f"{generate_timestamp()}_{input_image_filename}"
         )
         try:
-            shutil.copy2(input_image, input_image_path)
-            print(f"Copied input image to {input_image_path}")
-            # For Video model, we'll use the path
+            shutil.copy2(input_image, copied_input_image_path)
+            print(f"Copied input image to {copied_input_image_path}")
+            # For Video model, use the copied path
             if model_type == "Video":
-                input_image = input_image_path
+                input_image = copied_input_image_path
         except Exception as e:
             print(f"Error copying input image: {e}")
+
+    # Pick the best path we have for metadata
+    final_input_image_path = (
+            copied_input_image_path
+            or original_input_image_path
+            or (input_image if isinstance(input_image, str) else None)
+    )
+
+    # Derive filename if not already set
+    if final_input_image_path and not input_image_filename:
+        input_image_filename = os.path.basename(final_input_image_path)
+
 
     # Process end frame image (if it's a file path)
     end_frame_image_path = None
@@ -387,7 +403,8 @@ def process(
         "output_dir": settings.get("output_dir"),
         "metadata_dir": settings.get("metadata_dir"),
         "input_files_dir": input_files_dir,  # Add input_files_dir to job parameters
-        "input_image_path": input_image_path,  # Add the path to the copied input image
+        "input_image_path": final_input_image_path,  # Preserve best-known path
+        "input_image_filename": input_image_filename,  # New: original filename
         "end_frame_image_path": end_frame_image_path,  # Add the path to the copied end frame image
         "resolutionW": resolutionW,  # Add resolution parameter
         "resolutionH": resolutionH,
