@@ -701,6 +701,7 @@ def connect_generate_events(g, s, q, f):
         )
 
     ips = [
+          g["input_image"],  # numpy preview image (must be first)
           g["input_image_file"],  # NEW - filepath from File uploader
           g["input_video"],
           g["end_frame_image_original"],
