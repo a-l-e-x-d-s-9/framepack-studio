@@ -701,7 +701,6 @@ def connect_generate_events(g, s, q, f):
         )
 
     ips = [
-          g["input_image"],
           g["input_image_file"],  # NEW - filepath from File uploader
           g["input_video"],
           g["end_frame_image_original"],
