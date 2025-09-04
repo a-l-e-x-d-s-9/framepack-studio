@@ -672,8 +672,9 @@ def connect_generate_events(g, s, q, f):
                 result[2],
                 result[3],
                 result[4],
+                result[5],
                 start_button_update_after_add,
-                result[6],
+                result[7],
                 queue_status_data,
                 queue_stats_text,
             ]
@@ -689,8 +690,9 @@ def connect_generate_events(g, s, q, f):
             result[2],
             result[3],
             result[4],
+            result[5],
             start_button_update_after_add,
-            result[6],
+            result[7],
             queue_status_data,
             queue_stats_text,
         ]
