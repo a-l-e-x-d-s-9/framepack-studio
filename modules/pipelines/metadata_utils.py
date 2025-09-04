@@ -219,6 +219,7 @@ def create_metadata(job_params, job_id, settings, save_placeholder=False):
         "model_type": model_type,
         "generation_type": job_params.get("generation_type", model_type),
         "has_input_image": job_params.get("has_input_image", False),
+        "input_image_filename": job_params.get("input_image_filename", None),
         "input_image_path": job_params.get("input_image_path", None),
         # Video-related parameters
         "total_second_length": job_params.get("total_second_length", 6),
