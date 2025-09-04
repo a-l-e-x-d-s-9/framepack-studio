@@ -574,14 +574,14 @@ def connect_generate_events(g, s, q, f):
     )
 
     def _is_image_like(x):
-        return (
-                x is None
-                or isinstance(x, (np.ndarray, Image.Image, str))
-        )
+        return x is None or isinstance(x, (np.ndarray, Image.Image, str))
 
     def _safe_image_out(x):
-        # Only allow real image-like values; otherwise clear the image
+        # Never send dicts to Image outputs
         return x if _is_image_like(x) else None
+
+    def _get(result, idx, default=None):
+        return result[idx] if isinstance(result, (list, tuple)) and len(result) > idx else default
 
     def _sanitize_two_images(res, i_preview, i_top):
         # res can be tuple or list; convert and patch safely
@@ -705,19 +705,29 @@ def connect_generate_events(g, s, q, f):
         preview_out = _safe_image_out(result[2]) if len(result) > 2 else gr.update()
         top_preview_out = _safe_image_out(result[3]) if len(result) > 3 else gr.update()
 
+        # Sanitize image-like slots and pad missing values
+        rvideo = _get(result, 0, None)  # result_video
+        rjobid = _get(result, 1, None)  # current_job_id
+        rprev = _safe_image_out(_get(result, 2, None))  # preview_image
+        rtop = _safe_image_out(_get(result, 3, None))  # top_preview_image
+        rdesc = _get(result, 4, gr.update())  # progress_desc
+        rbar = _get(result, 5, gr.update())  # progress_bar
+        # result[6] is usually start_button, but we set it explicitly below
+        rendbtn = _get(result, 7, gr.update())  # end_button
+
         start_button_update_after_add = gr.update(value="🚀 Add to Queue")
         if result and result[1]:
             job_id = result[1]
             queue_status_data, queue_stats_text = f["update_stats"]()
             base_return = [
-                result[0],  # 1 result_video
-                job_id,  # 2 current_job_id
-                preview_out,  # 3 preview_image   (sanitized)
-                top_preview_out,  # 4 top_preview_image (sanitized)
-                result[4],  # 5 progress_desc
-                result[5],  # 6 progress_bar
+                rvideo,  # 1 result_video
+                rjobid,  # 2 current_job_id
+                rprev,  # 3 preview_image
+                rtop,  # 4 top_preview_image
+                rdesc,  # 5 progress_desc
+                rbar,  # 6 progress_bar
                 start_button_update_after_add,  # 7 start_button
-                result[7],  # 8 end_button
+                rendbtn,  # 8 end_button
                 queue_status_data,  # 9 queue_status
                 queue_stats_text,  # 10 queue_stats_display
             ]
@@ -728,14 +738,14 @@ def connect_generate_events(g, s, q, f):
             )
         queue_status_data, queue_stats_text = f["update_stats"]()
         base_return = [
-            result[0],  # 1 result_video
-            result[1],  # 2 current_job_id
-            preview_out,  # 3 preview_image   (sanitized)
-            top_preview_out,  # 4 top_preview_image (sanitized)
-            result[4],  # 5 progress_desc
-            result[5],  # 6 progress_bar
+            rvideo,  # 1 result_video
+            rjobid,  # 2 current_job_id
+            rprev,  # 3 preview_image
+            rtop,  # 4 top_preview_image
+            rdesc,  # 5 progress_desc
+            rbar,  # 6 progress_bar
             start_button_update_after_add,  # 7 start_button
-            result[7],  # 8 end_button
+            rendbtn,  # 8 end_button
             queue_status_data,  # 9 queue_status
             queue_stats_text,  # 10 queue_stats_display
         ]
