@@ -28,6 +28,7 @@ def load_presets(model_type):
         return []
 
 
+
 def create_generate_ui(
     lora_names, default_prompt, DUMMY_LORA_NAME, get_latents_display_top, settings
 ):
@@ -572,6 +573,16 @@ def connect_generate_events(g, s, q, f):
         ],
     )
 
+    def _is_image_like(x):
+        return (
+                x is None
+                or isinstance(x, (np.ndarray, Image.Image, str))
+        )
+
+    def _safe_image_out(x):
+        # Only allow real image-like values; otherwise don't update the image
+        return x if _is_image_like(x) else gr.update()
+
     def process_with_queue_update(model_type_arg, *args):
         queue_status_data, queue_stats_text = f["update_stats"]()
         (
@@ -662,21 +673,26 @@ def connect_generate_events(g, s, q, f):
         new_seed_value = random.randint(0, 21474) if randomize_seed_arg else None
         if new_seed_value:
             logging.info(f"Generated new seed for next job: {new_seed_value}")
+
+        # NEW: sanitize just the two image outputs (indexes 2 and 3)
+        preview_out = _safe_image_out(result[2]) if len(result) > 2 else gr.update()
+        top_preview_out = _safe_image_out(result[3]) if len(result) > 3 else gr.update()
+
         start_button_update_after_add = gr.update(value="🚀 Add to Queue")
         if result and result[1]:
             job_id = result[1]
             queue_status_data, queue_stats_text = f["update_stats"]()
             base_return = [
-                result[0],
-                job_id,
-                result[2],
-                result[3],
-                result[4],
-                result[5],
-                start_button_update_after_add,
-                result[7],
-                queue_status_data,
-                queue_stats_text,
+                result[0],  # 1 result_video
+                job_id,  # 2 current_job_id
+                preview_out,  # 3 preview_image   (sanitized)
+                top_preview_out,  # 4 top_preview_image (sanitized)
+                result[4],  # 5 progress_desc
+                result[5],  # 6 progress_bar
+                start_button_update_after_add,  # 7 start_button
+                result[7],  # 8 end_button
+                queue_status_data,  # 9 queue_status
+                queue_stats_text,  # 10 queue_stats_display
             ]
             return (
                 base_return + [new_seed_value, gr.update()]
@@ -685,16 +701,16 @@ def connect_generate_events(g, s, q, f):
             )
         queue_status_data, queue_stats_text = f["update_stats"]()
         base_return = [
-            result[0],
-            result[1],
-            result[2],
-            result[3],
-            result[4],
-            result[5],
-            start_button_update_after_add,
-            result[7],
-            queue_status_data,
-            queue_stats_text,
+            result[0],  # 1 result_video
+            result[1],  # 2 current_job_id
+            preview_out,  # 3 preview_image   (sanitized)
+            top_preview_out,  # 4 top_preview_image (sanitized)
+            result[4],  # 5 progress_desc
+            result[5],  # 6 progress_bar
+            start_button_update_after_add,  # 7 start_button
+            result[7],  # 8 end_button
+            queue_status_data,  # 9 queue_status
+            queue_stats_text,  # 10 queue_stats_display
         ]
         return (
             base_return + [new_seed_value, gr.update()]
