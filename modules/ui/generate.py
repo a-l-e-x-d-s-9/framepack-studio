@@ -126,7 +126,18 @@ def create_generate_ui(
                 with gr.Group(visible=True) as image_input_group:
                     with gr.Row():
                         with gr.Column(scale=1):
-                            # New: preserves the original filename and server path
+                            input_image = gr.Image(
+                                sources="upload",
+                                type="numpy",
+                                label="Start Frame (optional)",
+                                elem_classes="contain-image",
+                                image_mode="RGB",
+                                show_download_button=False,
+                                show_label=True,
+                                container=True,
+                            )
+                        with gr.Column(scale=1):
+                            # File picker to preserve original filename and server path
                             input_image_file = gr.File(
                                 label="Start Frame file (preserves filename)",
                                 file_count="single",
