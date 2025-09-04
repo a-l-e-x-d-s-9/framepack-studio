@@ -609,6 +609,12 @@ def connect_generate_events(g, s, q, f):
             out[1] = _safe_image_out(out[1])
         return tuple(out)
 
+    def _safe_video_out(x):
+        try:
+            return x if isinstance(x, str) and os.path.isfile(x) else None
+        except Exception:
+            return None
+
     def process_with_queue_update(model_type_arg, *args):
         queue_status_data, queue_stats_text = f["update_stats"]()
         (
@@ -647,8 +653,6 @@ def connect_generate_events(g, s, q, f):
         backend_model_type = (
             "Video" if model_type_arg == "Video with Endframe" else model_type_arg
         )
-        is_ui_video_model = f["is_video_model"](model_type_arg)
-        input_data = input_video_arg if is_ui_video_model else input_image_arg
 
         actual_end_frame_image_for_backend, actual_end_frame_strength_for_backend = (
             (end_frame_image_original_arg, end_frame_strength_original_arg)
@@ -657,12 +661,17 @@ def connect_generate_events(g, s, q, f):
             else (None, 1.0)
         )
 
+        is_ui_video_model = f["is_video_model"](model_type_arg)
+        input_data = input_video_arg if is_ui_video_model else input_image_arg
+
+        # Prefer the explicit file path from the File uploader.
+        # If for any reason the model is treated as "video", still keep a usable path if we have one.
         if is_ui_video_model:
-            input_image_path = input_video_arg if input_video_arg is not None else None
+            input_image_path = input_image_file_path_arg or (input_video_arg if input_video_arg else None)
         else:
-            # prefer explicit file path from the File uploader when provided
             input_image_path = input_image_file_path_arg
-            print("UI->worker input_image_path:", input_image_path)
+
+        print("UI->worker input_image_path:", input_image_path)
 
         result = f["process_fn"](
             backend_model_type,
@@ -706,7 +715,7 @@ def connect_generate_events(g, s, q, f):
         top_preview_out = _safe_image_out(result[3]) if len(result) > 3 else gr.update()
 
         # Sanitize image-like slots and pad missing values
-        rvideo = _get(result, 0, None)  # result_video
+        rvideo = _safe_video_out(_get(result, 0, None))
         rjobid = _get(result, 1, None)  # current_job_id
         rprev = _safe_image_out(_get(result, 2, None))  # preview_image
         rtop = _safe_image_out(_get(result, 3, None))  # top_preview_image
