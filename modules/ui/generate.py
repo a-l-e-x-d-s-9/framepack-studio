@@ -519,13 +519,12 @@ def connect_generate_events(g, s, q, f):
 
     def on_input_image_file_change(file_path):
         if not file_path:
-            return gr.update()
+            return None
         try:
-            np_img = np.array(Image.open(file_path).convert("RGB"))
-            return gr.update(value=np_img)
+            return np.array(Image.open(file_path).convert("RGB"))
         except Exception as e:
             logging.error(f"Failed to load image from file path {file_path}: {e}")
-            return gr.update()
+            return None
 
     g["input_image_file"].change(
         fn=on_input_image_file_change,
@@ -663,6 +662,7 @@ def connect_generate_events(g, s, q, f):
         else:
             # prefer explicit file path from the File uploader when provided
             input_image_path = input_image_file_path_arg
+            print("UI->worker input_image_path:", input_image_path)
 
         result = f["process_fn"](
             backend_model_type,
