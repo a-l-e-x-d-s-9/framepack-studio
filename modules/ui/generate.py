@@ -759,18 +759,18 @@ def connect_generate_events(g, s, q, f):
         fn=update_button_before_processing,
         inputs=[g["model_type"]] + ips,
         outputs=[
-            g["result_video"],
-            g["current_job_id"],
-            g["preview_image"],
-            g["top_preview_image"],
-            g["progress_desc"],
-            g["progress_bar"],
-            g["start_button"],
-            g["end_button"],
-            q["queue_status"],
-            q["queue_stats_display"],
-            g["seed"],
-            g["video_input_required_message"],
+            g["result_video"],  # 1
+            g["current_job_id"],  # 2
+            g["preview_image"],  # 3
+            g["top_preview_image"],  # 4
+            g["progress_desc"],  # 5
+            g["progress_bar"],  # 6
+            g["start_button"],  # 7
+            g["end_button"],  # 8
+            q["queue_status"],  # 9
+            q["queue_stats_display"],  # 10
+            g["seed"],  # 11
+            g["video_input_required_message"],  # 12
         ],
     ).then(
         fn=handle_start_button,
