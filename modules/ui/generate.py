@@ -580,8 +580,8 @@ def connect_generate_events(g, s, q, f):
         )
 
     def _safe_image_out(x):
-        # Only allow real image-like values; otherwise don't update the image
-        return x if _is_image_like(x) else gr.update()
+        # Only allow real image-like values; otherwise clear the image
+        return x if _is_image_like(x) else None
 
     def _sanitize_two_images(res, i_preview, i_top):
         # res can be tuple or list; convert and patch safely
