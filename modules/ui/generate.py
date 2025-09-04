@@ -583,6 +583,33 @@ def connect_generate_events(g, s, q, f):
         # Only allow real image-like values; otherwise don't update the image
         return x if _is_image_like(x) else gr.update()
 
+    def _sanitize_two_images(res, i_preview, i_top):
+        # res can be tuple or list; convert and patch safely
+        out = list(res)
+        if len(out) > i_preview:
+            out[i_preview] = _safe_image_out(out[i_preview])
+        if len(out) > i_top:
+            out[i_top] = _safe_image_out(out[i_top])
+        return tuple(out)
+
+    def check_for_current_job_and_monitor_sanitized():
+        res = f["check_for_current_job_and_monitor"]()
+        # outputs: [current_job_id, result_video, preview_image, top_preview_image, progress_desc, progress_bar, queue_status, queue_stats_display]
+        return _sanitize_two_images(res, 2, 3)
+
+    def check_for_current_job_sanitized():
+        res = f["check_for_current_job"]()
+        # outputs: [current_job_id, result_video, preview_image, top_preview_image, progress_desc, progress_bar]
+        return _sanitize_two_images(res, 2, 3)
+
+    def create_latents_layout_update_sanitized():
+        res = f["create_latents_layout_update"]()
+        # outputs: [top_preview_row, preview_image]  -> sanitize index 1
+        out = list(res)
+        if len(out) > 1:
+            out[1] = _safe_image_out(out[1])
+        return tuple(out)
+
     def process_with_queue_update(model_type_arg, *args):
         queue_status_data, queue_stats_text = f["update_stats"]()
         (
@@ -860,7 +887,7 @@ def connect_generate_events(g, s, q, f):
         inputs=None,
         outputs=[q["queue_status"], q["queue_stats_display"]],
     ).then(
-        fn=f["check_for_current_job"],
+        fn=check_for_current_job_sanitized,
         inputs=None,
         outputs=[
             g["current_job_id"],
@@ -871,7 +898,7 @@ def connect_generate_events(g, s, q, f):
             g["progress_bar"],
         ],
     ).then(
-        fn=f["create_latents_layout_update"],
+        fn=create_latents_layout_update_sanitized,
         inputs=None,
         outputs=[g["top_preview_row"], g["preview_image"]],
     )
@@ -928,7 +955,7 @@ def connect_generate_events(g, s, q, f):
         inputs=None,
         outputs=[q["queue_status"], q["queue_stats_display"]],
     ).then(
-        fn=f["check_for_current_job"],
+        fn=check_for_current_job_sanitized,
         inputs=None,
         outputs=[
             g["current_job_id"],
@@ -939,7 +966,7 @@ def connect_generate_events(g, s, q, f):
             g["progress_bar"],
         ],
     ).then(
-        fn=f["create_latents_layout_update"],
+        fn=create_latents_layout_update_sanitized,
         inputs=None,
         outputs=[g["top_preview_row"], g["preview_image"]],
     )
@@ -1280,7 +1307,7 @@ def connect_generate_events(g, s, q, f):
     )
 
     f["block"].load(
-        fn=f["check_for_current_job_and_monitor"],
+        fn=check_for_current_job_and_monitor_sanitized,  # <-- was f["check_for_current_job_and_monitor"]
         inputs=[],
         outputs=[
             g["current_job_id"],
@@ -1303,7 +1330,7 @@ def connect_generate_events(g, s, q, f):
         inputs=[g["model_type"], g["input_video"]],
         outputs=[g["start_button"], g["video_input_required_message"]],
     ).then(
-        fn=f["create_latents_layout_update"],
+        fn=create_latents_layout_update_sanitized,
         inputs=None,
         outputs=[g["top_preview_row"], g["preview_image"]],
     )
